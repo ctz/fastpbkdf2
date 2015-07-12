@@ -124,7 +124,7 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
                                                                               \
                                                                               \
   /* --- PBKDF2 --- */                                                        \
-  static void PBKDF2_F(_name)(const HMAC_CTX(_name) *startctx,                \
+  static inline void PBKDF2_F(_name)(const HMAC_CTX(_name) *startctx,         \
                               uint32_t counter,                               \
                               const uint8_t *salt, size_t nsalt,              \
                               uint32_t iterations,                            \
@@ -156,7 +156,7 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
     }                                                                         \
   }                                                                           \
                                                                               \
-  void PBKDF2(_name)(const uint8_t *pw, size_t npw,                           \
+  static inline void PBKDF2(_name)(const uint8_t *pw, size_t npw,             \
                      const uint8_t *salt, size_t nsalt,                       \
                      uint32_t iterations,                                     \
                      uint8_t *out, size_t nout)                               \
