@@ -36,6 +36,24 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
   out[3] = n & 0xff;
 }
 
+static inline void write64_be(uint64_t n, uint8_t out[8])
+{
+  write32_be((n >> 32) & 0xffffffff, out);
+  write32_be(n & 0xffffffff, out + 4);
+}
+
+/* Prepare block (of blocksz bytes) to contain md padding denoting a msg-size
+ * message (in bytes).  block has a prefix of used bytes.
+ *
+ * Message length is expressed in 32 bits (so suitable for sha1, sha256, sha512). */
+static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t msg)
+{
+  memset(block + used, 0, blocksz - used - 4);
+  block[used] = 0x80;
+  block += blocksz - 4;
+  write32_be(msg * 8, block);
+}
+
 /* Internal function/type names for hash-specific things. */
 #define HMAC_CTX(_name) HMAC_ ## _name ## _ctx
 #define HMAC_INIT(_name) HMAC_ ## _name ## _init
@@ -54,11 +72,16 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
  * _ctx hash context type
  * _init hash context initialisation function, taking args (_ctx *c)
  * _update hash context update function, taking args (_ctx *c, const void *data, size_t ndata)
+ * _xcpy hash context raw copy function (only need copy hash state)
+ *    args: (_ctx *out, const _ctx *in)
+ * _xform hash context raw block update function, taking args (_ctx *c, const void *data)
+ * _xtract hash context state extraction, taking args (_ctx *c, uint8_t *out)
  * _final hash context finish function, taking args (void *out, _ctx *c)
  *
  * The resulting function is named PBKDF2(_name).
  */
-#define DECL_PBKDF2(_name, _blocksz, _hashsz, _ctx, _init, _update, _final)   \
+#define DECL_PBKDF2(_name, _blocksz, _hashsz, _ctx,                           \
+                    _init, _update, _xcpy, _xform, _xtract, _final)           \
   typedef struct {                                                            \
     _ctx inner;                                                               \
     _ctx outer;                                                               \
@@ -125,15 +148,17 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
                                                                               \
   /* --- PBKDF2 --- */                                                        \
   static inline void PBKDF2_F(_name)(const HMAC_CTX(_name) *startctx,         \
-                              uint32_t counter,                               \
-                              const uint8_t *salt, size_t nsalt,              \
-                              uint32_t iterations,                            \
-                              uint8_t *out)                                   \
+                                     uint32_t counter,                        \
+                                     const uint8_t *salt, size_t nsalt,       \
+                                     uint32_t iterations,                     \
+                                     uint8_t *out)                            \
   {                                                                           \
-    uint8_t U[_hashsz];                                                       \
-                                                                              \
     uint8_t countbuf[4];                                                      \
     write32_be(counter, countbuf);                                            \
+                                                                              \
+    /* Prepare loop-invariant padding block. */                               \
+    uint8_t Ublock[_blocksz];                                                 \
+    md_pad(Ublock, _blocksz, _hashsz, _blocksz + _hashsz);                    \
                                                                               \
     /* First iteration:                                                       \
      *   U_1 = PRF(P, S || INT_32_BE(i))                                      \
@@ -141,18 +166,23 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
     HMAC_CTX(_name) ctx = *startctx;                                          \
     HMAC_UPDATE(_name)(&ctx, salt, nsalt);                                    \
     HMAC_UPDATE(_name)(&ctx, countbuf, sizeof countbuf);                      \
-    HMAC_FINAL(_name)(&ctx, U);                                               \
-    memcpy(out, U, _hashsz);                                                  \
+    HMAC_FINAL(_name)(&ctx, Ublock);                                          \
+    memcpy(out, Ublock, _hashsz);                                             \
                                                                               \
     /* Subsequent iterations:                                                 \
      *   U_c = PRF(P, U_{c-1})                                                \
      */                                                                       \
     for (uint32_t i = 1; i < iterations; i++)                                 \
     {                                                                         \
-      ctx = *startctx;                                                        \
-      HMAC_UPDATE(_name)(&ctx, U, _hashsz);                                   \
-      HMAC_FINAL(_name)(&ctx, U);                                             \
-      xor(out, out, U, _hashsz);                                              \
+      /* Complete inner hash with previous U */                               \
+      _xcpy(&ctx.inner, &startctx->inner);                                    \
+      _xform(&ctx.inner, Ublock);                                             \
+      _xtract(&ctx.inner, Ublock);                                            \
+      /* Complete outer hash with inner output */                             \
+      _xcpy(&ctx.outer, &startctx->outer);                                    \
+      _xform(&ctx.outer, Ublock);                                             \
+      _xtract(&ctx.outer, Ublock);                                            \
+      xor(out, out, Ublock, _hashsz);                                         \
     }                                                                         \
   }                                                                           \
                                                                               \
@@ -183,20 +213,104 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
     }                                                                         \
   }
 
+static inline void sha1_extract(SHA_CTX *ctx, uint8_t *out)
+{
+  write32_be(ctx->h0, out);
+  write32_be(ctx->h1, out + 4);
+  write32_be(ctx->h2, out + 8);
+  write32_be(ctx->h3, out + 12);
+  write32_be(ctx->h4, out + 16);
+}
+
+static inline void sha1_cpy(SHA_CTX *out, const SHA_CTX *in)
+{
+  out->h0 = in->h0;
+  out->h1 = in->h1;
+  out->h2 = in->h2;
+  out->h3 = in->h3;
+  out->h4 = in->h4;
+}
+
 DECL_PBKDF2(sha1,
-            SHA_CBLOCK, SHA_DIGEST_LENGTH,
+            SHA_CBLOCK,
+            SHA_DIGEST_LENGTH,
             SHA_CTX,
-            SHA1_Init, SHA1_Update, SHA1_Final)
+            SHA1_Init,
+            SHA1_Update,
+            sha1_cpy,
+            SHA1_Transform,
+            sha1_extract,
+            SHA1_Final)
+
+static inline void sha256_extract(SHA256_CTX *ctx, uint8_t *out)
+{
+  write32_be(ctx->h[0], out);
+  write32_be(ctx->h[1], out + 4);
+  write32_be(ctx->h[2], out + 8);
+  write32_be(ctx->h[3], out + 12);
+  write32_be(ctx->h[4], out + 16);
+  write32_be(ctx->h[5], out + 20);
+  write32_be(ctx->h[6], out + 24);
+  write32_be(ctx->h[7], out + 28);
+}
+
+static inline void sha256_cpy(SHA256_CTX *out, const SHA256_CTX *in)
+{
+  out->h[0] = in->h[0];
+  out->h[1] = in->h[1];
+  out->h[2] = in->h[2];
+  out->h[3] = in->h[3];
+  out->h[4] = in->h[4];
+  out->h[5] = in->h[5];
+  out->h[6] = in->h[6];
+  out->h[7] = in->h[7];
+}
 
 DECL_PBKDF2(sha256,
-            SHA256_CBLOCK, SHA256_DIGEST_LENGTH,
+            SHA256_CBLOCK,
+            SHA256_DIGEST_LENGTH,
             SHA256_CTX,
-            SHA256_Init, SHA256_Update, SHA256_Final)
+            SHA256_Init,
+            SHA256_Update,
+            sha256_cpy,
+            SHA256_Transform,
+            sha256_extract,
+            SHA256_Final)
+
+static inline void sha512_extract(SHA512_CTX *ctx, uint8_t *out)
+{
+  write64_be(ctx->h[0], out);
+  write64_be(ctx->h[1], out + 8);
+  write64_be(ctx->h[2], out + 16);
+  write64_be(ctx->h[3], out + 24);
+  write64_be(ctx->h[4], out + 32);
+  write64_be(ctx->h[5], out + 40);
+  write64_be(ctx->h[6], out + 48);
+  write64_be(ctx->h[7], out + 56);
+}
+
+static inline void sha512_cpy(SHA512_CTX *out, const SHA512_CTX *in)
+{
+  out->h[0] = in->h[0];
+  out->h[1] = in->h[1];
+  out->h[2] = in->h[2];
+  out->h[3] = in->h[3];
+  out->h[4] = in->h[4];
+  out->h[5] = in->h[5];
+  out->h[6] = in->h[6];
+  out->h[7] = in->h[7];
+}
 
 DECL_PBKDF2(sha512,
-            SHA512_CBLOCK, SHA512_DIGEST_LENGTH,
+            SHA512_CBLOCK,
+            SHA512_DIGEST_LENGTH,
             SHA512_CTX,
-            SHA512_Init, SHA512_Update, SHA512_Final)
+            SHA512_Init,
+            SHA512_Update,
+            sha512_cpy,
+            SHA512_Transform,
+            sha512_extract,
+            SHA512_Final)
 
 void fastpbkdf2_hmac_sha1(const uint8_t *pw, size_t npw,
                           const uint8_t *salt, size_t nsalt,
