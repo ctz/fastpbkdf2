@@ -70,18 +70,25 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
  * _blocksz block size, in bytes
  * _hashsz digest output, in bytes
  * _ctx hash context type
- * _init hash context initialisation function, taking args (_ctx *c)
- * _update hash context update function, taking args (_ctx *c, const void *data, size_t ndata)
+ * _init hash context initialisation function
+ *    args: (_ctx *c)
+ * _update hash context update function
+ *    args: (_ctx *c, const void *data, size_t ndata)
+ * _final hash context finish function
+ *    args: (void *out, _ctx *c)
+ * _xform hash context raw block update function
+ *    args: (_ctx *c, const void *data)
  * _xcpy hash context raw copy function (only need copy hash state)
  *    args: (_ctx *out, const _ctx *in)
- * _xform hash context raw block update function, taking args (_ctx *c, const void *data)
- * _xtract hash context state extraction, taking args (_ctx *c, uint8_t *out)
- * _final hash context finish function, taking args (void *out, _ctx *c)
+ * _xtract hash context state extraction
+ *    args: args (_ctx *c, uint8_t *out)
+ * _xxor hash context xor function (only need xor hash state)
+ *    args: (_ctx *out, const _ctx *in)
  *
  * The resulting function is named PBKDF2(_name).
  */
 #define DECL_PBKDF2(_name, _blocksz, _hashsz, _ctx,                           \
-                    _init, _update, _xcpy, _xform, _xtract, _final)           \
+                    _init, _update, _xform, _final, _xcpy, _xtract, _xxor)    \
   typedef struct {                                                            \
     _ctx inner;                                                               \
     _ctx outer;                                                               \
@@ -167,7 +174,7 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
     HMAC_UPDATE(_name)(&ctx, salt, nsalt);                                    \
     HMAC_UPDATE(_name)(&ctx, countbuf, sizeof countbuf);                      \
     HMAC_FINAL(_name)(&ctx, Ublock);                                          \
-    memcpy(out, Ublock, _hashsz);                                             \
+    _ctx result = ctx.outer;                                                  \
                                                                               \
     /* Subsequent iterations:                                                 \
      *   U_c = PRF(P, U_{c-1})                                                \
@@ -182,8 +189,11 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
       _xcpy(&ctx.outer, &startctx->outer);                                    \
       _xform(&ctx.outer, Ublock);                                             \
       _xtract(&ctx.outer, Ublock);                                            \
-      xor(out, out, Ublock, _hashsz);                                         \
+      _xxor(&result, &ctx.outer);                                             \
     }                                                                         \
+                                                                              \
+    /* Reform result into output buffer. */                                   \
+    _xtract(&result, out);                                                    \
   }                                                                           \
                                                                               \
   static inline void PBKDF2(_name)(const uint8_t *pw, size_t npw,             \
@@ -231,16 +241,26 @@ static inline void sha1_cpy(SHA_CTX *out, const SHA_CTX *in)
   out->h4 = in->h4;
 }
 
+static inline void sha1_xor(SHA_CTX *out, const SHA_CTX *in)
+{
+  out->h0 ^= in->h0;
+  out->h1 ^= in->h1;
+  out->h2 ^= in->h2;
+  out->h3 ^= in->h3;
+  out->h4 ^= in->h4;
+}
+
 DECL_PBKDF2(sha1,
             SHA_CBLOCK,
             SHA_DIGEST_LENGTH,
             SHA_CTX,
             SHA1_Init,
             SHA1_Update,
-            sha1_cpy,
             SHA1_Transform,
+            SHA1_Final,
+            sha1_cpy,
             sha1_extract,
-            SHA1_Final)
+            sha1_xor)
 
 static inline void sha256_extract(SHA256_CTX *ctx, uint8_t *out)
 {
@@ -266,16 +286,29 @@ static inline void sha256_cpy(SHA256_CTX *out, const SHA256_CTX *in)
   out->h[7] = in->h[7];
 }
 
+static inline void sha256_xor(SHA256_CTX *out, const SHA256_CTX *in)
+{
+  out->h[0] ^= in->h[0];
+  out->h[1] ^= in->h[1];
+  out->h[2] ^= in->h[2];
+  out->h[3] ^= in->h[3];
+  out->h[4] ^= in->h[4];
+  out->h[5] ^= in->h[5];
+  out->h[6] ^= in->h[6];
+  out->h[7] ^= in->h[7];
+}
+
 DECL_PBKDF2(sha256,
             SHA256_CBLOCK,
             SHA256_DIGEST_LENGTH,
             SHA256_CTX,
             SHA256_Init,
             SHA256_Update,
-            sha256_cpy,
             SHA256_Transform,
+            SHA256_Final,
+            sha256_cpy,
             sha256_extract,
-            SHA256_Final)
+            sha256_xor)
 
 static inline void sha512_extract(SHA512_CTX *ctx, uint8_t *out)
 {
@@ -301,16 +334,29 @@ static inline void sha512_cpy(SHA512_CTX *out, const SHA512_CTX *in)
   out->h[7] = in->h[7];
 }
 
+static inline void sha512_xor(SHA512_CTX *out, const SHA512_CTX *in)
+{
+  out->h[0] ^= in->h[0];
+  out->h[1] ^= in->h[1];
+  out->h[2] ^= in->h[2];
+  out->h[3] ^= in->h[3];
+  out->h[4] ^= in->h[4];
+  out->h[5] ^= in->h[5];
+  out->h[6] ^= in->h[6];
+  out->h[7] ^= in->h[7];
+}
+
 DECL_PBKDF2(sha512,
             SHA512_CBLOCK,
             SHA512_DIGEST_LENGTH,
             SHA512_CTX,
             SHA512_Init,
             SHA512_Update,
-            sha512_cpy,
             SHA512_Transform,
+            SHA512_Final,
+            sha512_cpy,
             sha512_extract,
-            SHA512_Final)
+            sha512_xor)
 
 void fastpbkdf2_hmac_sha1(const uint8_t *pw, size_t npw,
                           const uint8_t *salt, size_t nsalt,
