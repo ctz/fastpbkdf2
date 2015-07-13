@@ -1,5 +1,5 @@
 
-CFLAGS += -std=c99 -O3 -Wall -Werror -Wextra -pedantic
+CFLAGS += -std=c99 -O3 -g -Wall -Werror -Wextra -pedantic
 LDLIBS += -lcrypto
 
 all: testfastpbkdf2 bench

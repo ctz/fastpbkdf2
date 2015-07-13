@@ -9,6 +9,14 @@ typedef void (*pbkdf2_fn)(const uint8_t *pw, size_t npw,
                           uint32_t iterations,
                           uint8_t *out, size_t nout);
 
+static void dump(const char *label, const uint8_t *data, size_t n)
+{
+  printf("%s: ", label);
+  for (size_t i = 0; i < n; i++)
+    printf("%02x", data[i]);
+  printf("\n");
+}
+
 static void check(pbkdf2_fn fn,
                   const void *pw, size_t npw,
                   const void *salt, size_t nsalt,
@@ -23,6 +31,8 @@ static void check(pbkdf2_fn fn,
      iterations,
      out, nexpect);
 
+  dump("expect", expect, nexpect);
+  dump("got   ", out, nexpect);
   assert(memcmp(expect, out, nexpect) == 0);
   printf("- test passed\n");
 }

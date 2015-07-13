@@ -9,6 +9,8 @@
 
 #define PASSWORD (const void *) "password", 8
 #define SALT (const void *) "saltsalt", 8
+
+#define WARMUP 4096
 #define ITERATIONS (1 << 22)
 
 static double now(void)
@@ -24,12 +26,20 @@ static double now(void)
 static void sha1(void)
 {
   uint8_t out[20];
+  
+  PKCS5_PBKDF2_HMAC_SHA1(PASSWORD, SALT,
+                         WARMUP,
+                         (int) sizeof(out), out);
 
   double start = now();
   PKCS5_PBKDF2_HMAC_SHA1(PASSWORD, SALT,
                          ITERATIONS,
                          (int) sizeof(out), out);
   printf("openssl sha1 = %gs\n", now() - start);
+  
+  fastpbkdf2_hmac_sha1(PASSWORD, SALT,
+                       WARMUP,
+                       out, sizeof out);
 
   start = now();
   fastpbkdf2_hmac_sha1(PASSWORD, SALT,
@@ -41,6 +51,11 @@ static void sha1(void)
 static void sha256(void)
 {
   uint8_t out[32];
+  
+  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
+                    WARMUP,
+                    EVP_sha256(),
+                    (int) sizeof(out), out);
 
   double start = now();
   PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
@@ -48,6 +63,10 @@ static void sha256(void)
                     EVP_sha256(),
                     (int) sizeof(out), out);
   printf("openssl sha256 = %gs\n", now() - start);
+  
+  fastpbkdf2_hmac_sha256(PASSWORD, SALT,
+                         WARMUP,
+                         out, sizeof out);
 
   start = now();
   fastpbkdf2_hmac_sha256(PASSWORD, SALT,
@@ -59,6 +78,11 @@ static void sha256(void)
 static void sha512(void)
 {
   uint8_t out[64];
+  
+  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
+                    WARMUP,
+                    EVP_sha512(),
+                    (int) sizeof(out), out);
 
   double start = now();
   PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
@@ -66,6 +90,10 @@ static void sha512(void)
                     EVP_sha512(),
                     (int) sizeof(out), out);
   printf("openssl sha512 = %gs\n", now() - start);
+  
+  fastpbkdf2_hmac_sha512(PASSWORD, SALT,
+                         WARMUP,
+                         out, sizeof out);
 
   start = now();
   fastpbkdf2_hmac_sha512(PASSWORD, SALT,
