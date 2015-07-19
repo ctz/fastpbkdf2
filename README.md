@@ -29,11 +29,11 @@ Please see the header file for details and constraints.
 
 ## Performance
 
-Hash     | OpenSSL     | fastpbkdf2   | (faster by %)
+Hash     | OpenSSL     | fastpbkdf2   | (comparison)
 ---------|-------------|--------------|--------------
-SHA1     | 11.84s      | 3.18s        | 372%
-SHA256   | 16.54s      | 7.62s        | 217%
-SHA512   | 21.90s      | 9.83s        | 222%
+SHA1     | 11.84s      | 3.07s        | x3.86
+SHA256   | 16.54s      | 7.45s        | x2.22
+SHA512   | 21.90s      | 9.33s        | x2.34
 
 (non-scientific, walltime output from `bench`, 2<sup>22</sup> iterations, 1.86GHz Intel Atom N2800)
 
