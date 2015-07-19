@@ -35,7 +35,7 @@ SHA1     | 11.84s      | 3.18s        | 372%
 SHA256   | 16.54s      | 7.62s        | 217%
 SHA512   | 21.90s      | 9.83s        | 222%
 
-(non-scientific, walltime output from `bench`, 2^<sup>22</sup> iterations, 1.86GHz Intel Atom N2800)
+(non-scientific, walltime output from `bench`, 2<sup>22</sup> iterations, 1.86GHz Intel Atom N2800)
 
 ## Requirements
 * OpenSSL's libcrypto.
