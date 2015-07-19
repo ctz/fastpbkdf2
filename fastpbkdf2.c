@@ -11,7 +11,7 @@
  * along with this software. If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
- 
+
 #include "fastpbkdf2.h"
 
 #include <assert.h>
@@ -22,24 +22,26 @@
 /* --- Common useful things --- */
 #define MIN(a, b) ((a) > (b)) ? (b) : (a)
 
-static inline void xor(uint8_t *out, const uint8_t *a, const uint8_t *b, size_t n)
-{
-  for (size_t i = 0; i < n; i++)
-    out[i] = a[i] ^ b[i];
-}
-
 static inline void write32_be(uint32_t n, uint8_t out[4])
 {
+#if __GNUC__ >= 4
+  *(uint32_t *)(out) = __builtin_bswap32(n);
+#else
   out[0] = (n >> 24) & 0xff;
   out[1] = (n >> 16) & 0xff;
   out[2] = (n >> 8) & 0xff;
   out[3] = n & 0xff;
+#endif
 }
 
 static inline void write64_be(uint64_t n, uint8_t out[8])
 {
+#if __GNUC__ >= 4
+  *(uint64_t *)(out) = __builtin_bswap64(n);
+#else
   write32_be((n >> 32) & 0xffffffff, out);
   write32_be(n & 0xffffffff, out + 4);
+#endif
 }
 
 /* Prepare block (of blocksz bytes) to contain md padding denoting a msg-size
@@ -79,11 +81,11 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
  * _xform hash context raw block update function
  *    args: (_ctx *c, const void *data)
  * _xcpy hash context raw copy function (only need copy hash state)
- *    args: (_ctx *out, const _ctx *in)
+ *    args: (_ctx * restrict out, const _ctx *restrict in)
  * _xtract hash context state extraction
- *    args: args (_ctx *c, uint8_t *out)
+ *    args: args (_ctx *restrict c, uint8_t *restrict out)
  * _xxor hash context xor function (only need xor hash state)
- *    args: (_ctx *out, const _ctx *in)
+ *    args: (_ctx *restrict out, const _ctx *restrict in)
  *
  * The resulting function is named PBKDF2(_name).
  */
@@ -223,7 +225,7 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
     }                                                                         \
   }
 
-static inline void sha1_extract(SHA_CTX *ctx, uint8_t *out)
+static inline void sha1_extract(SHA_CTX *restrict ctx, uint8_t *restrict out)
 {
   write32_be(ctx->h0, out);
   write32_be(ctx->h1, out + 4);
@@ -232,7 +234,7 @@ static inline void sha1_extract(SHA_CTX *ctx, uint8_t *out)
   write32_be(ctx->h4, out + 16);
 }
 
-static inline void sha1_cpy(SHA_CTX *out, const SHA_CTX *in)
+static inline void sha1_cpy(SHA_CTX *restrict out, const SHA_CTX *restrict in)
 {
   out->h0 = in->h0;
   out->h1 = in->h1;
@@ -241,7 +243,7 @@ static inline void sha1_cpy(SHA_CTX *out, const SHA_CTX *in)
   out->h4 = in->h4;
 }
 
-static inline void sha1_xor(SHA_CTX *out, const SHA_CTX *in)
+static inline void sha1_xor(SHA_CTX *restrict out, const SHA_CTX *restrict in)
 {
   out->h0 ^= in->h0;
   out->h1 ^= in->h1;
@@ -262,7 +264,7 @@ DECL_PBKDF2(sha1,
             sha1_extract,
             sha1_xor)
 
-static inline void sha256_extract(SHA256_CTX *ctx, uint8_t *out)
+static inline void sha256_extract(SHA256_CTX *restrict ctx, uint8_t *restrict out)
 {
   write32_be(ctx->h[0], out);
   write32_be(ctx->h[1], out + 4);
@@ -274,7 +276,7 @@ static inline void sha256_extract(SHA256_CTX *ctx, uint8_t *out)
   write32_be(ctx->h[7], out + 28);
 }
 
-static inline void sha256_cpy(SHA256_CTX *out, const SHA256_CTX *in)
+static inline void sha256_cpy(SHA256_CTX *restrict out, const SHA256_CTX *restrict in)
 {
   out->h[0] = in->h[0];
   out->h[1] = in->h[1];
@@ -286,7 +288,7 @@ static inline void sha256_cpy(SHA256_CTX *out, const SHA256_CTX *in)
   out->h[7] = in->h[7];
 }
 
-static inline void sha256_xor(SHA256_CTX *out, const SHA256_CTX *in)
+static inline void sha256_xor(SHA256_CTX *restrict out, const SHA256_CTX *restrict in)
 {
   out->h[0] ^= in->h[0];
   out->h[1] ^= in->h[1];
@@ -310,7 +312,7 @@ DECL_PBKDF2(sha256,
             sha256_extract,
             sha256_xor)
 
-static inline void sha512_extract(SHA512_CTX *ctx, uint8_t *out)
+static inline void sha512_extract(SHA512_CTX *restrict ctx, uint8_t *restrict out)
 {
   write64_be(ctx->h[0], out);
   write64_be(ctx->h[1], out + 8);
@@ -322,7 +324,7 @@ static inline void sha512_extract(SHA512_CTX *ctx, uint8_t *out)
   write64_be(ctx->h[7], out + 56);
 }
 
-static inline void sha512_cpy(SHA512_CTX *out, const SHA512_CTX *in)
+static inline void sha512_cpy(SHA512_CTX *restrict out, const SHA512_CTX *restrict in)
 {
   out->h[0] = in->h[0];
   out->h[1] = in->h[1];
@@ -334,7 +336,7 @@ static inline void sha512_cpy(SHA512_CTX *out, const SHA512_CTX *in)
   out->h[7] = in->h[7];
 }
 
-static inline void sha512_xor(SHA512_CTX *out, const SHA512_CTX *in)
+static inline void sha512_xor(SHA512_CTX *restrict out, const SHA512_CTX *restrict in)
 {
   out->h[0] ^= in->h[0];
   out->h[1] ^= in->h[1];
