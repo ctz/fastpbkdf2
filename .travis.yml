@@ -3,6 +3,7 @@ language: c
 script:
  - make clean
  - make test
+ - make runbench
 
 compiler:
  - gcc

@@ -11,5 +11,8 @@ bench: bench.o fastpbkdf2.o
 test: testfastpbkdf2
 	./testfastpbkdf2
 
+runbench: bench
+	./bench
+
 clean:
 	rm -f *.o testfastpbkdf2
