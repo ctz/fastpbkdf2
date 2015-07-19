@@ -1,5 +1,5 @@
 /*
- * fastpbkdf2 - Optimal PBKDF2-HMAC calculation
+ * fastpbkdf2 - Faster PBKDF2-HMAC calculation
  * Written in 2015 by Joseph Birr-Pixton <jpixton@gmail.com>
  *
  * To the extent possible under law, the author(s) have dedicated all
@@ -18,6 +18,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void fastpbkdf2_hmac_sha1(const uint8_t *pw, size_t npw,
                           const uint8_t *salt, size_t nsalt,
                           uint32_t iterations,
@@ -32,5 +36,9 @@ void fastpbkdf2_hmac_sha512(const uint8_t *pw, size_t npw,
                             const uint8_t *salt, size_t nsalt,
                             uint32_t iterations,
                             uint8_t *out, size_t nout);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
