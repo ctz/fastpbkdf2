@@ -12,4 +12,4 @@ test: testfastpbkdf2
 	./testfastpbkdf2
 
 clean:
-	rm *.o testfastpbkdf2
+	rm -f *.o testfastpbkdf2
