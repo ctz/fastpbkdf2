@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <sys/times.h>
 
 #include <openssl/evp.h>
 #include "fastpbkdf2.h"
@@ -13,100 +13,100 @@
 #define WARMUP 4096
 #define ITERATIONS (1 << 22)
 
-static double now(void)
+static clock_t now(void)
 {
-  struct timeval tv = { 0, 0 };
-  gettimeofday(&tv, NULL);
-
-  double r = tv.tv_sec;
-  r += (double) tv.tv_usec * 1e-6;
-  return r;
+  struct tms tms;
+  times(&tms);
+  return tms.tms_utime;
 }
 
-static void sha1(void)
+static double clock2secs(clock_t start, clock_t end)
+{
+  assert(end >= start);
+  return (end - start) / (double) sysconf(_SC_CLK_TCK);
+}
+
+static void sha1(uint32_t repeat, uint32_t iterations)
 {
   uint8_t out[20];
-  
-  PKCS5_PBKDF2_HMAC_SHA1(PASSWORD, SALT,
-                         WARMUP,
-                         (int) sizeof(out), out);
 
-  double start = now();
-  PKCS5_PBKDF2_HMAC_SHA1(PASSWORD, SALT,
-                         ITERATIONS,
-                         (int) sizeof(out), out);
-  printf("openssl sha1 = %gs\n", now() - start);
-  
-  fastpbkdf2_hmac_sha1(PASSWORD, SALT,
-                       WARMUP,
-                       out, sizeof out);
+  clock_t end, start = now();
+  for (uint32_t i = 0; i < repeat; i++)
+    PKCS5_PBKDF2_HMAC_SHA1(PASSWORD, SALT,
+                           iterations,
+                           (int) sizeof(out), out);
+  end = now();
+  printf("openssl,sha1,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 
   start = now();
-  fastpbkdf2_hmac_sha1(PASSWORD, SALT,
-                       ITERATIONS,
-                       out, sizeof out);
-  printf("fastpbkdf2 sha1 = %gs\n", now() - start);
+  for (uint32_t i = 0; i < repeat; i++)
+    fastpbkdf2_hmac_sha1(PASSWORD, SALT,
+                         iterations,
+                         out, sizeof out);
+  end = now();
+  printf("fastpbkdf2,sha1,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
 
-static void sha256(void)
+static void sha256(uint32_t repeat, uint32_t iterations)
 {
   uint8_t out[32];
-  
-  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
-                    WARMUP,
-                    EVP_sha256(),
-                    (int) sizeof(out), out);
 
-  double start = now();
-  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
-                    ITERATIONS,
-                    EVP_sha256(),
-                    (int) sizeof(out), out);
-  printf("openssl sha256 = %gs\n", now() - start);
-  
-  fastpbkdf2_hmac_sha256(PASSWORD, SALT,
-                         WARMUP,
-                         out, sizeof out);
+  clock_t end, start = now();
+  for (uint32_t i = 0; i < repeat; i++)
+    PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
+                      iterations,
+                      EVP_sha256(),
+                      (int) sizeof(out), out);
+  end = now();
+  printf("openssl,sha256,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 
   start = now();
-  fastpbkdf2_hmac_sha256(PASSWORD, SALT,
-                         ITERATIONS,
-                         out, sizeof out);
-  printf("fastpbkdf2 sha256 = %gs\n", now() - start);
+  for (uint32_t i = 0; i < repeat; i++)
+    fastpbkdf2_hmac_sha256(PASSWORD, SALT,
+                           iterations,
+                           out, sizeof out);
+  end = now();
+  printf("fastpbkdf2,sha256,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
 
-static void sha512(void)
+static void sha512(uint32_t repeat, uint32_t iterations)
 {
   uint8_t out[64];
-  
-  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
-                    WARMUP,
-                    EVP_sha512(),
-                    (int) sizeof(out), out);
 
-  double start = now();
-  PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
-                    ITERATIONS,
-                    EVP_sha512(),
-                    (int) sizeof(out), out);
-  printf("openssl sha512 = %gs\n", now() - start);
-  
-  fastpbkdf2_hmac_sha512(PASSWORD, SALT,
-                         WARMUP,
-                         out, sizeof out);
+  clock_t end, start = now();
+  for (uint32_t i = 0; i < repeat; i++)
+    PKCS5_PBKDF2_HMAC(PASSWORD, SALT,
+                      iterations,
+                      EVP_sha512(),
+                      (int) sizeof(out), out);
+  end = now();
+  printf("openssl,sha512,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 
   start = now();
-  fastpbkdf2_hmac_sha512(PASSWORD, SALT,
-                         ITERATIONS,
-                         out, sizeof out);
-  printf("fastpbkdf2 sha512 = %gs\n", now() - start);
+  for (uint32_t i = 0; i < repeat; i++)
+    fastpbkdf2_hmac_sha512(PASSWORD, SALT,
+                           iterations,
+                           out, sizeof out);
+  end = now();
+  printf("fastpbkdf2,sha512,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
+
+#define RUNTESTS(fn) \
+  fn(1 << 9, 1 << 14); \
+  fn(1 << 8, 1 << 15); \
+  fn(1 << 7, 1 << 16); \
+  fn(1 << 6, 1 << 17); \
+  fn(1 << 5, 1 << 18); \
+  fn(1 << 4, 1 << 19); \
+  fn(1 << 3, 1 << 20); \
+  fn(1 << 2, 1 << 21); \
+  fn(1 << 1, 1 << 22)
 
 int main(void)
 {
-  sha1();
-  sha256();
-  sha512();
+  RUNTESTS(sha1);
+  RUNTESTS(sha256);
+  RUNTESTS(sha512);
 
   return 0;
 }
