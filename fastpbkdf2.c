@@ -44,6 +44,13 @@ static inline void write64_be(uint64_t n, uint8_t out[8])
 #endif
 }
 
+/* --- Optional OpenMP parallelisation of consecutive blocks --- */
+#ifdef WITH_OPENMP
+# define OPENMP_PARALLEL_FOR _Pragma("omp parallel for")
+#else
+# define OPENMP_PARALLEL_FOR
+#endif
+
 /* Prepare block (of blocksz bytes) to contain md padding denoting a msg-size
  * message (in bytes).  block has a prefix of used bytes.
  *
@@ -203,9 +210,6 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
                      uint32_t iterations,                                     \
                      uint8_t *out, size_t nout)                               \
   {                                                                           \
-    uint32_t counter = 1;                                                     \
-    uint8_t block[_hashsz];                                                   \
-                                                                              \
     assert(iterations);                                                       \
     assert(out && nout);                                                      \
                                                                               \
@@ -213,15 +217,18 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
     HMAC_CTX(_name) ctx;                                                      \
     HMAC_INIT(_name)(&ctx, pw, npw);                                          \
                                                                               \
-    while (nout)                                                              \
+    /* How many blocks do we need? */                                         \
+    uint32_t blocks_needed = (nout + _hashsz - 1) / _hashsz;                  \
+                                                                              \
+    OPENMP_PARALLEL_FOR                                                       \
+    for (uint32_t counter = 1; counter <= blocks_needed; counter++)           \
     {                                                                         \
+      uint8_t block[_hashsz];                                                 \
       PBKDF2_F(_name)(&ctx, counter, salt, nsalt, iterations, block);         \
                                                                               \
-      size_t taken = MIN(nout, _hashsz);                                      \
-      memcpy(out, block, taken);                                              \
-      out += taken;                                                           \
-      nout -= taken;                                                          \
-      counter++;                                                              \
+      size_t offset = (counter - 1) * _hashsz;                                \
+      size_t taken = MIN(nout - offset, _hashsz);                             \
+      memcpy(out + offset, block, taken);                                     \
     }                                                                         \
   }
 
