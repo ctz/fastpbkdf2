@@ -4,6 +4,9 @@ script:
  - make clean
  - make test
  - make runbench
+ - make clean
+ - make test WITH_OPENMP=1
+ - make runbench WITH_OPENMP=1
 
 compiler:
  - gcc
