@@ -24,7 +24,7 @@
 
 static inline void write32_be(uint32_t n, uint8_t out[4])
 {
-#if __GNUC__ >= 4
+#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint32_t *)(out) = __builtin_bswap32(n);
 #else
   out[0] = (n >> 24) & 0xff;
@@ -36,7 +36,7 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
 
 static inline void write64_be(uint64_t n, uint8_t out[8])
 {
-#if __GNUC__ >= 4
+#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint64_t *)(out) = __builtin_bswap64(n);
 #else
   write32_be((n >> 32) & 0xffffffff, out);
