@@ -49,6 +49,17 @@ The program `bench` provides a very basic performance comparison between OpenSSL
 The implementation has one header and one translation unit.  This
 is intended for easy integration into your project.
 
+### Optional parallelisation of outer loop
+PBKDF2 is misdesigned and you should avoid asking for more than your hash function's output length.
+In other words, nout should be <= 20 for `fastpbkdf2_hmac_sha1`, <= 32 for `fastpbkdf2_hmac_sha256`
+and <= 64 for `fastpbkdf2_hmac_sha512`.
+
+If you can't avoid this (for compatibility reasons, say) compile everything with `-fopenmp`
+and `-DWITH_OPENMP` to have this computation done in parallel.  Note that this has non-zero
+overhead.
+
+The program `multibench` provides a basic performance comparison for using this option.
+
 ## License
 [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
