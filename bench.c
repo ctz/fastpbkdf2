@@ -91,18 +91,25 @@ static void sha512(uint32_t repeat, uint32_t iterations)
   printf("fastpbkdf2,sha512,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
 
-#define RUNTESTS(fn) \
-  fn(1 << 8, 1 << 14); \
-  fn(1 << 6, 1 << 16); \
-  fn(1 << 4, 1 << 18); \
-  fn(1 << 2, 1 << 20); \
-  fn(1 << 0, 1 << 22)
-
-int main(void)
+int main(int argc, char **argv)
 {
-  RUNTESTS(sha1);
-  RUNTESTS(sha256);
-  RUNTESTS(sha512);
+  unsigned total_iterations_log2 = 22;
+
+  if (argc == 2)
+  {
+    total_iterations_log2 = atoi(argv[1]);
+    assert(total_iterations_log2 > 12);
+  }
+
+  for (unsigned iterations = total_iterations_log2,
+                reps = 1;
+       iterations >= 12;
+       iterations -= 2, reps <<= 2)
+  {
+    sha1(reps, 1 << iterations);
+    sha256(reps, 1 << iterations);
+    sha512(reps, 1 << iterations);
+  }
 
   return 0;
 }
