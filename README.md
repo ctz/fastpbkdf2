@@ -29,13 +29,25 @@ Please see the header file for details and constraints.
 
 ## Performance
 
+These values are wall time, output from the `bench` tool.
+
+### AMD64
 Hash     | OpenSSL     | fastpbkdf2   | (comparison)
 ---------|-------------|--------------|--------------
 SHA1     | 11.84s      | 3.07s        | x3.86
 SHA256   | 16.54s      | 7.45s        | x2.22
 SHA512   | 21.90s      | 9.33s        | x2.34
 
-(non-scientific, walltime output from `bench`, 2<sup>22</sup> iterations, 1.86GHz Intel Atom N2800)
+2<sup>22</sup> iterations, 1.86GHz Intel Atom N2800, amd64.
+
+### ARM
+Hash     | OpenSSL     | fastpbkdf2   | (comparison)
+---------|-------------|--------------|--------------
+SHA1     | 30.4s       | 4.43s        | x6.86
+SHA256   | 36.52s      | 7.04s        | x5.19
+SHA512   | 77.44s      | 28.1s        | x2.76
+
+2<sup>20</sup> iterations, Raspberry Pi - 700MHz ARM11.
 
 ## Requirements
 * OpenSSL's libcrypto.
