@@ -2,7 +2,7 @@
 This is a fast PBKDF2-HMAC-{SHA1,SHA256,SHA512} implementation in C.
 
 It uses OpenSSL's hash functions, but out-performs OpenSSL's own PBKDF2
-thanks to [various optimisations in the inner loop](https://jbp.io/2015/08/11/pbkdf2-performance-matters/).
+thanks to [various optimisations in the inner loop](https://jbp.io/2015/08/11/pbkdf2-performance-matters/#strategies).
 
 [![Build Status](https://travis-ci.org/ctz/fastpbkdf2.svg)](https://travis-ci.org/ctz/fastpbkdf2)
 
