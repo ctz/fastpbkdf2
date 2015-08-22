@@ -75,5 +75,8 @@ The program `multibench` provides a basic performance comparison for using this 
 ## License
 [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
+## Language bindings
+* [python-fastpbkdf2](https://github.com/Ayrx/python-fastpbkdf2).
+
 ## Author
 Joseph Birr-Pixton <jpixton@gmail.com>
