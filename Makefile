@@ -25,4 +25,4 @@ runbench: bench benchmulti
 	./benchmulti
 
 clean:
-	rm -f *.o testfastpbkdf2
+	rm -f *.o libfastpbkdf2.a testfastpbkdf2
