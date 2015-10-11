@@ -78,6 +78,7 @@ The program `multibench` provides a basic performance comparison for using this 
 ## Language bindings
 * [python-fastpbkdf2](https://github.com/Ayrx/python-fastpbkdf2) by [Ayrx](https://github.com/Ayrx).
 * [go-fastpbkdf2](https://github.com/ctz/go-fastpbkdf2) by me.
+* [rust-fastpbkdf2](https://github.com/ctz/rust-fastpbkdf2) by me.
 
 ## Author
 Joseph Birr-Pixton <jpixton@gmail.com>
