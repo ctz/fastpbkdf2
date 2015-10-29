@@ -30,7 +30,7 @@
 
 static inline void write32_be(uint32_t n, uint8_t out[4])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) && __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint32_t *)(out) = __builtin_bswap32(n);
 #else
   out[0] = (n >> 24) & 0xff;
@@ -42,7 +42,7 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
 
 static inline void write64_be(uint64_t n, uint8_t out[8])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) &&  __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint64_t *)(out) = __builtin_bswap64(n);
 #else
   write32_be((n >> 32) & 0xffffffff, out);
@@ -66,7 +66,7 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
   memset(block + used, 0, blocksz - used - 4);
   block[used] = 0x80;
   block += blocksz - 4;
-  write32_be(msg * 8, block);
+  write32_be((uint32_t) (msg * 8), block);
 }
 
 /* Internal function/type names for hash-specific things. */
@@ -224,7 +224,7 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
     HMAC_INIT(_name)(&ctx, pw, npw);                                          \
                                                                               \
     /* How many blocks do we need? */                                         \
-    uint32_t blocks_needed = (nout + _hashsz - 1) / _hashsz;                  \
+    uint32_t blocks_needed = (uint32_t)(nout + _hashsz - 1) / _hashsz;        \
                                                                               \
     OPENMP_PARALLEL_FOR                                                       \
     for (uint32_t counter = 1; counter <= blocks_needed; counter++)           \

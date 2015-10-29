@@ -3,7 +3,7 @@
 OPENMP = /openmp /DWITH_OPENMP=1
 !ENDIF
 
-CFLAGS = /Iopenssl\include /O2 /W3 $(OPENMP)
+CFLAGS = /Iopenssl\include /O2 /W4 /WX /nologo $(OPENMP)
 TARGETS = testfastpbkdf2.exe bench.exe benchmulti.exe
 LDLIBS = /link openssl\lib\libeay32.lib
 
