@@ -19,6 +19,12 @@
 
 #include <openssl/sha.h>
 
+/* --- MSVC doesn't support C99 --- */
+#ifdef _MSC_VER
+#define restrict
+#define _Pragma __pragma
+#endif
+
 /* --- Common useful things --- */
 #define MIN(a, b) ((a) > (b)) ? (b) : (a)
 

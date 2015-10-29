@@ -34,3 +34,4 @@
 testfastpbkdf2
 bench
 benchmulti
+openssl/
