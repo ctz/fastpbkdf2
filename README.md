@@ -72,6 +72,9 @@ overhead.
 
 The program `multibench` provides a basic performance comparison for using this option.
 
+## Windows
+[Details on building for Windows](WINDOWS.md).
+
 ## License
 [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
