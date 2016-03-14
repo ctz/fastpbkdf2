@@ -4,7 +4,7 @@ ifdef WITH_OPENMP
   LDFLAGS += -fopenmp
 endif
 
-CFLAGS += -std=c99 -O3 -g -Wall -Werror -Wextra -pedantic
+CFLAGS += -std=c99 -O3 -g -Wall -Werror -Wextra -pedantic -march=native
 LDLIBS += -lcrypto
 
 all: testfastpbkdf2 libfastpbkdf2.a bench benchmulti
