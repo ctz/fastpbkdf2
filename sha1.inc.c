@@ -15,32 +15,33 @@
 #include <string.h>
 
 /* --- SHA1 --- */
-#define SHA1_BLOCK 64
-#define SHA1_DIGEST 20
+
+#define CF_SHA1_HASHSZ 20
+#define CF_SHA1_BLOCKSZ 64
 
 typedef struct
 {
-  uint32_t h[5];
-  uint8_t buf[64];
-  size_t used;
+  uint32_t H[5];
+  uint8_t partial[CF_SHA1_BLOCKSZ];
   size_t blocks;
-} sha1;
+  size_t npartial;
+} cf_sha1_context;
 
-typedef uint32_t sha1_block[16];
+typedef uint32_t cf_sha1_block[16];
 
-static void sha1_init(sha1 *ctx)
+static void cf_sha1_init(cf_sha1_context *ctx)
 {
   memset(ctx, 0, sizeof *ctx);
-  ctx->h[0] = 0x67452301;
-  ctx->h[1] = 0xefcdab89;
-  ctx->h[2] = 0x98badcfe;
-  ctx->h[3] = 0x10325476;
-  ctx->h[4] = 0xc3d2e1f0;
+  ctx->H[0] = 0x67452301;
+  ctx->H[1] = 0xefcdab89;
+  ctx->H[2] = 0x98badcfe;
+  ctx->H[3] = 0x10325476;
+  ctx->H[4] = 0xc3d2e1f0;
 }
 
 static void sha1_raw_transform(const uint32_t state_in[5],
                                uint32_t state_out[5],
-                               const sha1_block inp)
+                               const cf_sha1_block inp)
 {
   uint32_t a = state_in[0],
            b = state_in[1],
@@ -55,12 +56,12 @@ static void sha1_raw_transform(const uint32_t state_in[5],
   uint32_t W[16];
 
 #define Wi(i) W[i] = inp[i]
-#define Wn(n) W[n & 0xf] = rotl(W[(n - 3) & 0xf] ^ W[(n - 8) & 0xf] ^ W[(n - 14) & 0xf] ^ W[(n - 16) & 0xf], 1)
+#define Wn(n) W[n & 0xf] = rotl32(W[(n - 3) & 0xf] ^ W[(n - 8) & 0xf] ^ W[(n - 14) & 0xf] ^ W[(n - 16) & 0xf], 1)
 
-#define R0(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + W[i & 0xf] + 0x5a827999 + rotl(v, 5); w = rotl(w, 30)
-#define R1(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0x6ed9eba1 + rotl(v, 5); w = rotl(w, 30)
-#define R2(v, w, x, y, z, i) z += (((w | x) & y) | (w & x)) + W[i & 0xf] + 0x8f1bbcdc + rotl(v, 5); w = rotl(w, 30)
-#define R3(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0xca62c1d6 + rotl(v, 5); w = rotl(w, 30)
+#define R0(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + W[i & 0xf] + 0x5a827999 + rotl32(v, 5); w = rotl32(w, 30)
+#define R1(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0x6ed9eba1 + rotl32(v, 5); w = rotl32(w, 30)
+#define R2(v, w, x, y, z, i) z += (((w | x) & y) | (w & x)) + W[i & 0xf] + 0x8f1bbcdc + rotl32(v, 5); w = rotl32(w, 30)
+#define R3(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0xca62c1d6 + rotl32(v, 5); w = rotl32(w, 30)
 
   Wi(0);  R0(a, b, c, d, e, 0);
   Wi(1);  R0(e, a, b, c, d, 1);
@@ -158,18 +159,18 @@ static void sha1_raw_transform(const uint32_t state_in[5],
 #undef Wn
 }
 
-static void sha1_convert_input(sha1_block inp32, const uint8_t inp[64])
+static void sha1_convert_input(cf_sha1_block inp32, const uint8_t inp[64])
 {
   for (int i = 0; i < 64; i += 4)
     inp32[i >> 2] = read32_be(inp + i);
 }
 
-static void sha1_transform(void *vctx, const uint8_t inp[64])
+static void sha1_update_block(void *vctx, const uint8_t inp[64])
 {
-  sha1 *ctx = vctx;
+  cf_sha1_context *ctx = vctx;
   uint32_t inp32[16];
   sha1_convert_input(inp32, inp);
-  sha1_raw_transform(ctx->h, ctx->h, inp32);
+  sha1_raw_transform(ctx->H, ctx->H, inp32);
   ctx->blocks += 1;
 }
 
@@ -191,43 +192,43 @@ static inline void sha1_xor(uint32_t *restrict out, const uint32_t *restrict in)
   out[4] ^= in[4];
 }
 
-static void sha1_update(sha1 *ctx, const uint8_t *bytes, size_t nbytes)
+static void cf_sha1_update(cf_sha1_context *ctx, const uint8_t *bytes, size_t nbytes)
 {
-  cf_blockwise_accumulate(ctx->buf, &ctx->used, SHA1_BLOCK,
+  cf_blockwise_accumulate(ctx->partial, &ctx->npartial, sizeof ctx->partial,
                           bytes, nbytes,
-                          sha1_transform, ctx);
+                          sha1_update_block, ctx);
 }
 
-static void sha1_final(uint8_t out[20], sha1 *ctx)
+static void cf_sha1_final(cf_sha1_context *ctx, uint8_t out[CF_SHA1_HASHSZ])
 {
-  uint32_t bytes = ctx->blocks * SHA1_BLOCK + ctx->used;
+  uint32_t bytes = ctx->blocks * CF_SHA1_BLOCKSZ + ctx->npartial;
   uint32_t bits = bytes * 8;
-  uint32_t padbytes = SHA1_BLOCK - ((bytes + 4) % SHA1_BLOCK);
+  uint32_t padbytes = CF_SHA1_BLOCKSZ - ((bytes + 4) % CF_SHA1_BLOCKSZ);
   
   /* Hash 0x80 00 ... block first. */
-  cf_blockwise_acc_pad(ctx->buf, &ctx->used, sizeof ctx->buf,
+  cf_blockwise_acc_pad(ctx->partial, &ctx->npartial, sizeof ctx->partial,
                        0x80, 0x00, 0x00, padbytes,
-                       sha1_transform, ctx);
+                       sha1_update_block, ctx);
 
   /* Hash length */
   uint8_t buf[4];
   write32_be(bits, buf);
-  sha1_update(ctx, buf, 4);
-  assert(ctx->used == 0);
+  cf_sha1_update(ctx, buf, 4);
+  assert(ctx->npartial == 0);
 
-  sha1_convert_output(ctx->h, out);
+  sha1_convert_output(ctx->H, out);
 }
 
 #define _name       sha1
-#define _blocksz    SHA1_BLOCK
-#define _hashsz     SHA1_DIGEST
-#define _ctx        sha1
-#define _blocktype  sha1_block
+#define _blocksz    CF_SHA1_BLOCKSZ
+#define _hashsz     CF_SHA1_HASHSZ
+#define _ctx        cf_sha1_context
+#define _blocktype  cf_sha1_block
 #define _cvt_input  sha1_convert_input
 #define _cvt_output sha1_convert_output
-#define _init       sha1_init
-#define _update     sha1_update
-#define _final      sha1_final
+#define _init       cf_sha1_init
+#define _update     cf_sha1_update
+#define _final      cf_sha1_final
 #define _transform  sha1_raw_transform
 #define _xor        sha1_xor
 
@@ -238,141 +239,11 @@ static void sha1_final(uint8_t out[20], sha1 *ctx)
 #undef _hashsz
 #undef _ctx
 #undef _blocktype
-#undef _convert
+#undef _cvt_input
+#undef _cvt_output
 #undef _init
 #undef _update
 #undef _final
 #undef _transform
-#undef _xtract
 #undef _xor
 
-#if 0
-void cf_sha1_init(cf_sha1_context *ctx)
-{
-  memset(ctx, 0, sizeof *ctx);
-  ctx->H[0] = 0x67452301;
-  ctx->H[1] = 0xefcdab89;
-  ctx->H[2] = 0x98badcfe;
-  ctx->H[3] = 0x10325476;
-  ctx->H[4] = 0xc3d2e1f0;
-}
-
-static void sha1_update_block(void *vctx, const uint8_t *inp)
-{
-  cf_sha1_context *ctx = vctx;
-
-  /* This is a 16-word window into the whole W array. */
-  uint32_t W[16];
-
-  uint32_t a = ctx->H[0],
-           b = ctx->H[1],
-           c = ctx->H[2],
-           d = ctx->H[3],
-           e = ctx->H[4],
-           Wt;
-
-  for (size_t t = 0; t < 80; t++)
-  {
-    /* For W[0..16] we process the input into W.
-     * For W[16..79] we compute the next W value:
-     *
-     * W[t] = (W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16]) <<< 1
-     *
-     * But all W indices are reduced mod 16 into our window.
-     */
-    if (t < 16)
-    {
-      W[t] = Wt = read32_be(inp);
-      inp += 4;
-    } else {
-      Wt = W[(t - 3) % 16] ^ W[(t - 8) % 16] ^ W[(t - 14) % 16] ^ W[(t - 16) % 16];
-      Wt = rotl32(Wt, 1);
-      W[t % 16] = Wt;
-    }
-
-    uint32_t f, k;
-
-    if (t <= 19)
-    {
-      f = (b & c) | (~b & d);
-      k = 0x5a827999;
-    } else if (t <= 39) {
-      f = b ^ c ^ d;
-      k = 0x6ed9eba1;
-    } else if (t <= 59) {
-      f = (b & c) | (b & d) | (c & d);
-      k = 0x8f1bbcdc;
-    } else {
-      f = b ^ c ^ d;
-      k = 0xca62c1d6;
-    }
-
-    uint32_t temp = rotl32(a, 5) + f + e + k + Wt;
-    e = d;
-    d = c;
-    c = rotl32(b, 30);
-    b = a;
-    a = temp;
-  }
-
-  ctx->H[0] += a;
-  ctx->H[1] += b;
-  ctx->H[2] += c;
-  ctx->H[3] += d;
-  ctx->H[4] += e;
-
-  ctx->blocks++;
-}
-
-void cf_sha1_update(cf_sha1_context *ctx, const void *data, size_t nbytes)
-{
-  cf_blockwise_accumulate(ctx->partial, &ctx->npartial, sizeof ctx->partial,
-                          data, nbytes,
-                          sha1_update_block, ctx);
-}
-
-void cf_sha1_digest(const cf_sha1_context *ctx, uint8_t hash[CF_SHA1_HASHSZ])
-{
-  cf_sha1_context ours = *ctx;
-  cf_sha1_digest_final(&ours, hash);
-}
-
-void cf_sha1_digest_final(cf_sha1_context *ctx, uint8_t hash[CF_SHA1_HASHSZ])
-{
-  uint64_t digested_bytes = ctx->blocks;
-  digested_bytes = digested_bytes * CF_SHA1_BLOCKSZ + ctx->npartial;
-  uint64_t digested_bits = digested_bytes * 8;
-
-  size_t padbytes = CF_SHA1_BLOCKSZ - ((digested_bytes + 8) % CF_SHA1_BLOCKSZ);
-
-  /* Hash 0x80 00 ... block first. */
-  cf_blockwise_acc_pad(ctx->partial, &ctx->npartial, sizeof ctx->partial,
-                       0x80, 0x00, 0x00, padbytes,
-                       sha1_update_block, ctx);
-
-  /* Now hash length. */
-  uint8_t buf[8];
-  write64_be(digested_bits, buf);
-  cf_sha1_update(ctx, buf, 8);
-
-  /* We ought to have got our padding calculation right! */
-  assert(ctx->npartial == 0);
-
-  write32_be(ctx->H[0], hash + 0);
-  write32_be(ctx->H[1], hash + 4);
-  write32_be(ctx->H[2], hash + 8);
-  write32_be(ctx->H[3], hash + 12);
-  write32_be(ctx->H[4], hash + 16);
-  
-  memset(ctx, 0, sizeof *ctx);
-}
-
-const cf_chash cf_sha1 = {
-  .hashsz = CF_SHA1_HASHSZ,
-  .blocksz = CF_SHA1_BLOCKSZ,
-  .init = (cf_chash_init) cf_sha1_init,
-  .update = (cf_chash_update) cf_sha1_update,
-  .digest = (cf_chash_digest) cf_sha1_digest
-};
-
-#endif

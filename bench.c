@@ -47,7 +47,6 @@ static void sha1(uint32_t repeat, uint32_t iterations)
   printf("fastpbkdf2,sha1,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
 
-#if 0
 static void sha256(uint32_t repeat, uint32_t iterations)
 {
   uint8_t out[32];
@@ -91,7 +90,6 @@ static void sha512(uint32_t repeat, uint32_t iterations)
   end = now();
   printf("fastpbkdf2,sha512,%u,%u,%g\n", iterations, repeat, clock2secs(start, end));
 }
-#endif
 
 int main(int argc, char **argv)
 {
@@ -109,10 +107,8 @@ int main(int argc, char **argv)
        iterations -= 2, reps <<= 2)
   {
     sha1(reps, 1 << iterations);
-#if 0
     sha256(reps, 1 << iterations);
     sha512(reps, 1 << iterations);
-#endif
   }
 
   return 0;

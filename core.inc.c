@@ -18,25 +18,28 @@
 /* This file is the PBKDF2-HMAC core, and is included with the following
  * macros defined:
  *
- * _name like 'sha1', added to symbol names
- * _blocksz block size, in bytes
- * _hashsz digest output, in bytes
- * _ctx incremental hash context type
- * _blocktype message block type
- * _convert convert from bytes into a message block type
- *    args: (_blocktype *block, const uint8_t bytes[_blocksz])
- * _init hash context initialisation function
+ * _name:       like 'sha1', added to symbol names
+ * _blocksz:    block size, in bytes
+ * _hashsz:     digest output, in bytes
+ * _ctx:        incremental hash context type
+ *    this must have a member named 'H' of integer array type, the
+ *    integer type is called 'W' below
+ * _blocktype:  message block type
+ *    a W-type array of length _blocksz
+ * _cvt_input:  convert from bytes into a message block type
+ *    args: (_blocktype block, const uint8_t bytes[_blocksz])
+ * _cvt_output: convert from current state words to output
+ *    args: (const W *restrict state, uint8_t out[_hashsz])
+ * _init:       hash context initialisation function
  *    args: (_ctx *c)
- * _update hash context update function
+ * _update:     hash context update function
  *    args: (_ctx *c, const void *data, size_t ndata)
- * _final hash context finish function
- *    args: (void *out, _ctx *c)
- * _transform hash context raw block update function
- *    args: (const H *state_in, H *state_out, const void *data)
- * _xtract hash context state extraction
- *    args: args (_ctx *restrict c, uint8_t *restrict out)
- * _xor hash context xor function (only need xor hash state)
- *    args: (_ctx *restrict out, const _ctx *restrict in)
+ * _final:      hash context finish function
+ *    args: (_ctx *c, uint8_t *hash)
+ * _transform:  hash context raw block update function
+ *    args: (const W *state_in, W *state_out, const _blocktype inp)
+ * _xor:        hash state xor function
+ *    args: (W *restrict out, const W *restrict in)
  *
  * It (eventually) defines a function named PBKDF2(_name).
  */
@@ -69,7 +72,7 @@ static inline void HMAC_INIT(_name)(HMAC_CTX(_name) *ctx,
   {
     _init(&ctx->inner);
     _update(&ctx->inner, key, nkey);
-    _final(k, &ctx->inner);
+    _final(&ctx->inner, k);
 
     key = k;
     nkey = _hashsz;
@@ -111,9 +114,9 @@ static inline void HMAC_UPDATE(_name)(HMAC_CTX(_name) *ctx,
 static inline void HMAC_FINAL(_name)(HMAC_CTX(_name) *ctx,
                                      uint8_t out[_hashsz])
 {
-  _final(out, &ctx->inner);
+  _final(&ctx->inner, out);
   _update(&ctx->outer, out, _hashsz);
-  _final(out, &ctx->outer);
+  _final(&ctx->outer, out);
 }
 
 
@@ -153,17 +156,17 @@ static inline void PBKDF2_F(_name)(const HMAC_CTX(_name) *startctx,
     /* Complete inner hash with previous U (stored at the start of Ublock)
      *
      * Put the result again at the start of Ublock. */
-    _transform(startctx->inner.h, Ublock, Ublock);
+    _transform(startctx->inner.H, Ublock, Ublock);
 
     /* Complete outer hash with inner output */
-    _transform(startctx->outer.h, Ublock, Ublock);
+    _transform(startctx->outer.H, Ublock, Ublock);
 
     /* Collect ultimate result */
-    _xor(result.h, Ublock);
+    _xor(result.H, Ublock);
   }
 
   /* Reform result into output buffer. */
-  _cvt_output(result.h, out);
+  _cvt_output(result.H, out);
 }
 
 static inline void PBKDF2(_name)(const uint8_t *pw, size_t npw,
