@@ -72,12 +72,18 @@ overhead.
 
 The program `multibench` provides a basic performance comparison for using this option.
 
+## Windows
+[Details on building for Windows](WINDOWS.md).
+
 ## License
 [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ## Language bindings
 * [python-fastpbkdf2](https://github.com/Ayrx/python-fastpbkdf2) by [Ayrx](https://github.com/Ayrx).
 * [go-fastpbkdf2](https://github.com/ctz/go-fastpbkdf2) by me.
+* [rust-fastpbkdf2](https://github.com/ctz/rust-fastpbkdf2) by me.
+* [node-fastpbkdf2](https://github.com/S-YOU/node-fastpbkdf2.git) by [S-YOU](https://github.com/S-YOU).
+* [ruby-fastpbkdf2](https://github.com/S-YOU/ruby-fastpbkdf2.git) by [S-YOU](https://github.com/S-YOU).
 
 ## Author
 Joseph Birr-Pixton <jpixton@gmail.com>

@@ -19,6 +19,12 @@
 
 #include <openssl/sha.h>
 
+/* --- MSVC doesn't support C99 --- */
+#ifdef _MSC_VER
+#define restrict
+#define _Pragma __pragma
+#endif
+
 /* --- Common useful things --- */
 #define MIN(a, b) ((a) > (b)) ? (b) : (a)
 #define rotl32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
@@ -27,7 +33,7 @@
 
 static inline uint32_t read32_be(const uint8_t x[4])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) && __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   return __builtin_bswap32(*(uint32_t *)(x));
 #else
   uint32_t r = (uint32_t)(x[0]) << 24 |
@@ -40,7 +46,7 @@ static inline uint32_t read32_be(const uint8_t x[4])
 
 static inline void write32_be(uint32_t n, uint8_t out[4])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) && __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint32_t *)(out) = __builtin_bswap32(n);
 #else
   out[0] = (n >> 24) & 0xff;
@@ -52,7 +58,7 @@ static inline void write32_be(uint32_t n, uint8_t out[4])
 
 static inline uint64_t read64_be(const uint8_t x[8])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) && __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   return __builtin_bswap64(*(uint64_t *)(x));
 #else
   uint64_t r = (uint64_t)(x[0]) << 56 |
@@ -69,7 +75,7 @@ static inline uint64_t read64_be(const uint8_t x[8])
 
 static inline void write64_be(uint64_t n, uint8_t out[8])
 {
-#if __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if defined(__GNUC__) &&  __GNUC__ >= 4 && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
   *(uint64_t *)(out) = __builtin_bswap64(n);
 #else
   write32_be((n >> 32) & 0xffffffff, out);
@@ -93,7 +99,7 @@ static inline void md_pad(uint8_t *block, size_t blocksz, size_t used, size_t ms
   memset(block + used, 0, blocksz - used - 4);
   block[used] = 0x80;
   block += blocksz - 4;
-  write32_be(msg * 8, block);
+  write32_be((uint32_t) (msg * 8), block);
 }
 
 #include "blockwise.inc.c"
