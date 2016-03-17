@@ -81,16 +81,18 @@ static void sha512(uint32_t repeat, uint32_t iterations)
 int main(int argc, char **argv)
 {
   unsigned total_iterations_log2 = 22;
+  unsigned min_iterations_log2 = 12;
 
   if (argc == 2)
   {
     total_iterations_log2 = atoi(argv[1]);
+    min_iterations_log2 = total_iterations_log2;
     assert(total_iterations_log2 > 12);
   }
 
   for (unsigned iterations = total_iterations_log2,
                 reps = 1;
-       iterations >= 12;
+       iterations >= min_iterations_log2;
        iterations -= 2, reps <<= 2)
   {
     sha1(reps, 1 << iterations);
