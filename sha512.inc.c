@@ -64,10 +64,10 @@ static void sha512_raw_transform(const uint64_t state_in[8],
 # define SSIG1(x) (rotr64((x), 19) ^ rotr64((x), 61) ^ ((x) >> 6))
 
 # define Wi(i) W[i] = inp[i]
-# define Wn(n) W[n & 0xf] = SSIG1(W[(n - 2) & 0xf]) + W[(n - 7) & 0xf] + SSIG0(W[(n - 15) & 0xf]) + W[(n - 16) & 0xf]
+# define Wn(n) W[n] = SSIG1(W[n - 2]) + W[n - 7] + SSIG0(W[n - 15]) + W[n - 16]
 # define R(a, b, c, d, e, f, g, h, i, K)                           \
       do {                                                         \
-        uint64_t T1 = h + BSIG1(e) + CH(e, f, g) + K + W[i & 0xf]; \
+        uint64_t T1 = h + BSIG1(e) + CH(e, f, g) + K + W[i];       \
         uint64_t T2 = BSIG0(a) + MAJ(a, b, c);                     \
         d += T1;                                                   \
         h = T1 + T2;                                               \

@@ -49,19 +49,15 @@ static void sha1_raw_transform(const uint32_t state_in[5],
            d = state_in[3],
            e = state_in[4];
 
-  /* Instead of computing all 80 terms of W, we keep a
-   * 'circular window' of size 16. This is enough to calculate
-   * the next value in the window.  Accesses therefore need to
-   * be reduced mod 16. */
-  uint32_t W[16];
+  uint32_t W[80];
 
 #define Wi(i) W[i] = inp[i]
-#define Wn(n) W[n & 0xf] = rotl32(W[(n - 3) & 0xf] ^ W[(n - 8) & 0xf] ^ W[(n - 14) & 0xf] ^ W[(n - 16) & 0xf], 1)
+#define Wn(n) W[n] = rotl32(W[n - 3] ^ W[n - 8] ^ W[n - 14] ^ W[n - 16], 1)
 
-#define R0(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + W[i & 0xf] + 0x5a827999 + rotl32(v, 5); w = rotl32(w, 30)
-#define R1(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0x6ed9eba1 + rotl32(v, 5); w = rotl32(w, 30)
-#define R2(v, w, x, y, z, i) z += (((w | x) & y) | (w & x)) + W[i & 0xf] + 0x8f1bbcdc + rotl32(v, 5); w = rotl32(w, 30)
-#define R3(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i & 0xf] + 0xca62c1d6 + rotl32(v, 5); w = rotl32(w, 30)
+#define R0(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + W[i] + 0x5a827999 + rotl32(v, 5); w = rotl32(w, 30)
+#define R1(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i] + 0x6ed9eba1 + rotl32(v, 5); w = rotl32(w, 30)
+#define R2(v, w, x, y, z, i) z += (((w | x) & y) | (w & x)) + W[i] + 0x8f1bbcdc + rotl32(v, 5); w = rotl32(w, 30)
+#define R3(v, w, x, y, z, i) z += (w ^ x ^ y) + W[i] + 0xca62c1d6 + rotl32(v, 5); w = rotl32(w, 30)
 
   Wi(0);  R0(a, b, c, d, e, 0);
   Wi(1);  R0(e, a, b, c, d, 1);
