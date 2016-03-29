@@ -6,16 +6,22 @@ endif
 
 CFLAGS += -std=c99 -O3 -g -Wall -Werror -Wextra -pedantic -march=native
 LDLIBS += -lcrypto
+YASM = yasm -f x64 -f elf64 -X gnu -g dwarf2 -D LINUX
+
+OBJS = fastpbkdf2.o sha256_sse4.o sha256_avx1.o
 
 all: testfastpbkdf2 libfastpbkdf2.a bench benchmulti
 
-testfastpbkdf2: fastpbkdf2.o testfastpbkdf2.o
+testfastpbkdf2: $(OBJS) testfastpbkdf2.o
 
-libfastpbkdf2.a: fastpbkdf2.o
+%.o: %.asm
+	$(YASM) -o $@ $^
+
+libfastpbkdf2.a: $(OBJS)
 	$(AR) r $@ $^
 
-bench: bench.o fastpbkdf2.o
-benchmulti: benchmulti.o fastpbkdf2.o
+bench: bench.o $(OBJS)
+benchmulti: benchmulti.o $(OBJS)
 
 test: testfastpbkdf2
 	./testfastpbkdf2

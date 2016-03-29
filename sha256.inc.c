@@ -41,11 +41,21 @@ static void cf_sha256_init(cf_sha256_context *ctx)
   ctx->H[7] = 0x5be0cd19;
 }
 
+#if defined(__GNUC__) && defined(__x86_64__)
+extern void fastpbkdf2_sha256_sse4(const uint32_t state_in[8],
+                                   uint32_t state_out[8],
+                                   const cf_sha256_block inp);
+extern void fastpbkdf2_sha256_avx1(const uint32_t state_in[8],
+                                   uint32_t state_out[8],
+                                   const cf_sha256_block inp);
+# define sha256_raw_transform fastpbkdf2_sha256_sse4
+#else
 static void sha256_raw_transform(const uint32_t state_in[8],
                                  uint32_t state_out[8],
                                  const cf_sha256_block inp)
 {
-  uint32_t W[64];
+  uint32_t W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, Wa,
+           Wb, Wc, Wd, We, Wf;
 
   uint32_t a = state_in[0],
            b = state_in[1],
@@ -63,11 +73,27 @@ static void sha256_raw_transform(const uint32_t state_in[8],
 # define SSIG0(x) (rotr32((x), 7) ^ rotr32((x), 18) ^ ((x) >> 3))
 # define SSIG1(x) (rotr32((x), 17) ^ rotr32((x), 19) ^ ((x) >> 10))
 
-# define Wi(i) W[i] = inp[i]
-# define Wn(n) W[n] = SSIG1(W[n - 2]) + W[n - 7] + SSIG0(W[n - 15]) + W[n - 16]
-# define R(a, b, c, d, e, f, g, h, i, K)                           \
+# define W(Wn2, Wn7, Wn15, Wn16) SSIG1(Wn2) + Wn7 + SSIG0(Wn15) + Wn16
+
+# define Winit() \
+  W0 = inp[0];  W1 = inp[1];  W2 = inp[2];  W3 = inp[3];  \
+  W4 = inp[4];  W5 = inp[5];  W6 = inp[6];  W7 = inp[7];  \
+  W8 = inp[8];  W9 = inp[9];  Wa = inp[10]; Wb = inp[11]; \
+  Wc = inp[12]; Wd = inp[13]; We = inp[14]; Wf = inp[15]
+
+# define Wstep() \
+  W0 = W(We, W9, W1, W0);    W1 = W(Wf, Wa, W2, W1);  \
+  W2 = W(W0, Wb, W3, W2);    W3 = W(W1, Wc, W4, W3);  \
+  W4 = W(W2, Wd, W5, W4);    W5 = W(W3, We, W6, W5);  \
+  W6 = W(W4, Wf, W7, W6);    W7 = W(W5, W0, W8, W7);  \
+  W8 = W(W6, W1, W9, W8);    W9 = W(W7, W2, Wa, W9);  \
+  Wa = W(W8, W3, Wb, Wa);    Wb = W(W9, W4, Wc, Wb);  \
+  Wc = W(Wa, W5, Wd, Wc);    Wd = W(Wb, W6, We, Wd);  \
+  We = W(Wc, W7, Wf, We);    Wf = W(Wd, W8, W0, Wf)
+
+# define R(a, b, c, d, e, f, g, h, W, K)                           \
       do {                                                         \
-        uint32_t T1 = h + BSIG1(e) + CH(e, f, g) + K + W[i];       \
+        uint32_t T1 = h + BSIG1(e) + CH(e, f, g) + K + W;          \
         uint32_t T2 = BSIG0(a) + MAJ(a, b, c);                     \
         d += T1;                                                   \
         h = T1 + T2;                                               \
@@ -75,81 +101,77 @@ static void sha256_raw_transform(const uint32_t state_in[8],
   
   /* For best locality/reg allocation, compute 16 terms
    * of W at once. */
-  Wi(0);  Wi(1);  Wi(2);  Wi(3);  Wi(4);  Wi(5);  Wi(6);  Wi(7);
-  Wi(8);  Wi(9);  Wi(10); Wi(11); Wi(12); Wi(13); Wi(14); Wi(15);
-  R(a, b, c, d, e, f, g, h, 0, 0x428a2f98);
-  R(h, a, b, c, d, e, f, g, 1, 0x71374491);
-  R(g, h, a, b, c, d, e, f, 2, 0xb5c0fbcf);
-  R(f, g, h, a, b, c, d, e, 3, 0xe9b5dba5);
-  R(e, f, g, h, a, b, c, d, 4, 0x3956c25b);
-  R(d, e, f, g, h, a, b, c, 5, 0x59f111f1);
-  R(c, d, e, f, g, h, a, b, 6, 0x923f82a4);
-  R(b, c, d, e, f, g, h, a, 7, 0xab1c5ed5);
-  R(a, b, c, d, e, f, g, h, 8, 0xd807aa98);
-  R(h, a, b, c, d, e, f, g, 9, 0x12835b01);
-  R(g, h, a, b, c, d, e, f, 10, 0x243185be);
-  R(f, g, h, a, b, c, d, e, 11, 0x550c7dc3);
-  R(e, f, g, h, a, b, c, d, 12, 0x72be5d74);
-  R(d, e, f, g, h, a, b, c, 13, 0x80deb1fe);
-  R(c, d, e, f, g, h, a, b, 14, 0x9bdc06a7);
-  R(b, c, d, e, f, g, h, a, 15, 0xc19bf174);
+  Winit();
+  R(a, b, c, d, e, f, g, h, W0, 0x428a2f98);
+  R(h, a, b, c, d, e, f, g, W1, 0x71374491);
+  R(g, h, a, b, c, d, e, f, W2, 0xb5c0fbcf);
+  R(f, g, h, a, b, c, d, e, W3, 0xe9b5dba5);
+  R(e, f, g, h, a, b, c, d, W4, 0x3956c25b);
+  R(d, e, f, g, h, a, b, c, W5, 0x59f111f1);
+  R(c, d, e, f, g, h, a, b, W6, 0x923f82a4);
+  R(b, c, d, e, f, g, h, a, W7, 0xab1c5ed5);
+  R(a, b, c, d, e, f, g, h, W8, 0xd807aa98);
+  R(h, a, b, c, d, e, f, g, W9, 0x12835b01);
+  R(g, h, a, b, c, d, e, f, Wa, 0x243185be);
+  R(f, g, h, a, b, c, d, e, Wb, 0x550c7dc3);
+  R(e, f, g, h, a, b, c, d, Wc, 0x72be5d74);
+  R(d, e, f, g, h, a, b, c, Wd, 0x80deb1fe);
+  R(c, d, e, f, g, h, a, b, We, 0x9bdc06a7);
+  R(b, c, d, e, f, g, h, a, Wf, 0xc19bf174);
+ 
+  Wstep();
+  R(a, b, c, d, e, f, g, h, W0, 0xe49b69c1);
+  R(h, a, b, c, d, e, f, g, W1, 0xefbe4786);
+  R(g, h, a, b, c, d, e, f, W2, 0x0fc19dc6);
+  R(f, g, h, a, b, c, d, e, W3, 0x240ca1cc);
+  R(e, f, g, h, a, b, c, d, W4, 0x2de92c6f);
+  R(d, e, f, g, h, a, b, c, W5, 0x4a7484aa);
+  R(c, d, e, f, g, h, a, b, W6, 0x5cb0a9dc);
+  R(b, c, d, e, f, g, h, a, W7, 0x76f988da);
+  R(a, b, c, d, e, f, g, h, W8, 0x983e5152);
+  R(h, a, b, c, d, e, f, g, W9, 0xa831c66d);
+  R(g, h, a, b, c, d, e, f, Wa, 0xb00327c8);
+  R(f, g, h, a, b, c, d, e, Wb, 0xbf597fc7);
+  R(e, f, g, h, a, b, c, d, Wc, 0xc6e00bf3);
+  R(d, e, f, g, h, a, b, c, Wd, 0xd5a79147);
+  R(c, d, e, f, g, h, a, b, We, 0x06ca6351);
+  R(b, c, d, e, f, g, h, a, Wf, 0x14292967);
   
-  Wn(16); Wn(17); Wn(18); Wn(19); Wn(20); Wn(21); Wn(22); Wn(23);
-  Wn(24); Wn(25); Wn(26); Wn(27); Wn(28); Wn(29); Wn(30); Wn(31);
-  R(a, b, c, d, e, f, g, h, 16, 0xe49b69c1);
-  R(h, a, b, c, d, e, f, g, 17, 0xefbe4786);
-  R(g, h, a, b, c, d, e, f, 18, 0x0fc19dc6);
-  R(f, g, h, a, b, c, d, e, 19, 0x240ca1cc);
-  R(e, f, g, h, a, b, c, d, 20, 0x2de92c6f);
-  R(d, e, f, g, h, a, b, c, 21, 0x4a7484aa);
-  R(c, d, e, f, g, h, a, b, 22, 0x5cb0a9dc);
-  R(b, c, d, e, f, g, h, a, 23, 0x76f988da);
-  R(a, b, c, d, e, f, g, h, 24, 0x983e5152);
-  R(h, a, b, c, d, e, f, g, 25, 0xa831c66d);
-  R(g, h, a, b, c, d, e, f, 26, 0xb00327c8);
-  R(f, g, h, a, b, c, d, e, 27, 0xbf597fc7);
-  R(e, f, g, h, a, b, c, d, 28, 0xc6e00bf3);
-  R(d, e, f, g, h, a, b, c, 29, 0xd5a79147);
-  R(c, d, e, f, g, h, a, b, 30, 0x06ca6351);
-  R(b, c, d, e, f, g, h, a, 31, 0x14292967);
-  
-  Wn(32); Wn(33); Wn(34); Wn(35); Wn(36); Wn(37); Wn(38); Wn(39);
-  Wn(40); Wn(41); Wn(42); Wn(43); Wn(44); Wn(45); Wn(46); Wn(47);
-  R(a, b, c, d, e, f, g, h, 32, 0x27b70a85);
-  R(h, a, b, c, d, e, f, g, 33, 0x2e1b2138);
-  R(g, h, a, b, c, d, e, f, 34, 0x4d2c6dfc);
-  R(f, g, h, a, b, c, d, e, 35, 0x53380d13);
-  R(e, f, g, h, a, b, c, d, 36, 0x650a7354);
-  R(d, e, f, g, h, a, b, c, 37, 0x766a0abb);
-  R(c, d, e, f, g, h, a, b, 38, 0x81c2c92e);
-  R(b, c, d, e, f, g, h, a, 39, 0x92722c85);
-  R(a, b, c, d, e, f, g, h, 40, 0xa2bfe8a1);
-  R(h, a, b, c, d, e, f, g, 41, 0xa81a664b);
-  R(g, h, a, b, c, d, e, f, 42, 0xc24b8b70);
-  R(f, g, h, a, b, c, d, e, 43, 0xc76c51a3);
-  R(e, f, g, h, a, b, c, d, 44, 0xd192e819);
-  R(d, e, f, g, h, a, b, c, 45, 0xd6990624);
-  R(c, d, e, f, g, h, a, b, 46, 0xf40e3585);
-  R(b, c, d, e, f, g, h, a, 47, 0x106aa070);
-  
-  Wn(48); Wn(49); Wn(50); Wn(51); Wn(52); Wn(53); Wn(54); Wn(55);
-  Wn(56); Wn(57); Wn(58); Wn(59); Wn(60); Wn(61); Wn(62); Wn(63);
-  R(a, b, c, d, e, f, g, h, 48, 0x19a4c116);
-  R(h, a, b, c, d, e, f, g, 49, 0x1e376c08);
-  R(g, h, a, b, c, d, e, f, 50, 0x2748774c);
-  R(f, g, h, a, b, c, d, e, 51, 0x34b0bcb5);
-  R(e, f, g, h, a, b, c, d, 52, 0x391c0cb3);
-  R(d, e, f, g, h, a, b, c, 53, 0x4ed8aa4a);
-  R(c, d, e, f, g, h, a, b, 54, 0x5b9cca4f);
-  R(b, c, d, e, f, g, h, a, 55, 0x682e6ff3);
-  R(a, b, c, d, e, f, g, h, 56, 0x748f82ee);
-  R(h, a, b, c, d, e, f, g, 57, 0x78a5636f);
-  R(g, h, a, b, c, d, e, f, 58, 0x84c87814);
-  R(f, g, h, a, b, c, d, e, 59, 0x8cc70208);
-  R(e, f, g, h, a, b, c, d, 60, 0x90befffa);
-  R(d, e, f, g, h, a, b, c, 61, 0xa4506ceb);
-  R(c, d, e, f, g, h, a, b, 62, 0xbef9a3f7);
-  R(b, c, d, e, f, g, h, a, 63, 0xc67178f2);
+  Wstep();
+  R(a, b, c, d, e, f, g, h, W0, 0x27b70a85);
+  R(h, a, b, c, d, e, f, g, W1, 0x2e1b2138);
+  R(g, h, a, b, c, d, e, f, W2, 0x4d2c6dfc);
+  R(f, g, h, a, b, c, d, e, W3, 0x53380d13);
+  R(e, f, g, h, a, b, c, d, W4, 0x650a7354);
+  R(d, e, f, g, h, a, b, c, W5, 0x766a0abb);
+  R(c, d, e, f, g, h, a, b, W6, 0x81c2c92e);
+  R(b, c, d, e, f, g, h, a, W7, 0x92722c85);
+  R(a, b, c, d, e, f, g, h, W8, 0xa2bfe8a1);
+  R(h, a, b, c, d, e, f, g, W9, 0xa81a664b);
+  R(g, h, a, b, c, d, e, f, Wa, 0xc24b8b70);
+  R(f, g, h, a, b, c, d, e, Wb, 0xc76c51a3);
+  R(e, f, g, h, a, b, c, d, Wc, 0xd192e819);
+  R(d, e, f, g, h, a, b, c, Wd, 0xd6990624);
+  R(c, d, e, f, g, h, a, b, We, 0xf40e3585);
+  R(b, c, d, e, f, g, h, a, Wf, 0x106aa070);
+ 
+  Wstep();
+  R(a, b, c, d, e, f, g, h, W0, 0x19a4c116);
+  R(h, a, b, c, d, e, f, g, W1, 0x1e376c08);
+  R(g, h, a, b, c, d, e, f, W2, 0x2748774c);
+  R(f, g, h, a, b, c, d, e, W3, 0x34b0bcb5);
+  R(e, f, g, h, a, b, c, d, W4, 0x391c0cb3);
+  R(d, e, f, g, h, a, b, c, W5, 0x4ed8aa4a);
+  R(c, d, e, f, g, h, a, b, W6, 0x5b9cca4f);
+  R(b, c, d, e, f, g, h, a, W7, 0x682e6ff3);
+  R(a, b, c, d, e, f, g, h, W8, 0x748f82ee);
+  R(h, a, b, c, d, e, f, g, W9, 0x78a5636f);
+  R(g, h, a, b, c, d, e, f, Wa, 0x84c87814);
+  R(f, g, h, a, b, c, d, e, Wb, 0x8cc70208);
+  R(e, f, g, h, a, b, c, d, Wc, 0x90befffa);
+  R(d, e, f, g, h, a, b, c, Wd, 0xa4506ceb);
+  R(c, d, e, f, g, h, a, b, We, 0xbef9a3f7);
+  R(b, c, d, e, f, g, h, a, Wf, 0xc67178f2);
 
   state_out[0] = state_in[0] + a;
   state_out[1] = state_in[1] + b;
@@ -166,10 +188,12 @@ static void sha256_raw_transform(const uint32_t state_in[8],
 #undef BSIG1
 #undef SSIG0
 #undef SSIG1
-#undef Wi
-#undef Wn
+#undef W
+#undef Wstep
+#undef Winit
 #undef R
 }
+#endif
 
 static void sha256_convert_input(cf_sha256_block inp32, const uint8_t inp[CF_SHA256_BLOCKSZ])
 {

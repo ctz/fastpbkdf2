@@ -150,6 +150,9 @@ static inline void PBKDF2_F(_name)(const HMAC_CTX(_name) *startctx,
 
   /* Subsequent iterations:
    *   U_c = PRF(P, U_{c-1})
+   *
+   * At this point, Ublock contains U_1 plus MD padding, in native
+   * byte order.
    */
   for (uint32_t i = 1; i < iterations; i++)
   {
