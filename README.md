@@ -84,6 +84,7 @@ The program `multibench` provides a basic performance comparison for using this 
 * [rust-fastpbkdf2](https://github.com/ctz/rust-fastpbkdf2) by me.
 * [node-fastpbkdf2](https://github.com/S-YOU/node-fastpbkdf2.git) by [S-YOU](https://github.com/S-YOU).
 * [ruby-fastpbkdf2](https://github.com/S-YOU/ruby-fastpbkdf2.git) by [S-YOU](https://github.com/S-YOU).
+* [fastpbkdf2-hs](https://github.com/adinapoli/fastpbkdf2-hs.git) by [adinapoli](https://github.com/adinapoli).
 
 ## Author
 Joseph Birr-Pixton <jpixton@gmail.com>
