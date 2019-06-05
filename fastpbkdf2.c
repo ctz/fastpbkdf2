@@ -18,7 +18,7 @@
 #include <string.h>
 #if defined(__APPLE__)
 #include <machine/endian.h>
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 #include <endian.h>
 #endif
 
