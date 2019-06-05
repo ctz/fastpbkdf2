@@ -16,7 +16,9 @@
 
 #include <assert.h>
 #include <string.h>
-#if defined(__GNUC__)
+#if defined(__APPLE__)
+#include <machine/endian.h>
+#elif defined(__GNUC__)
 #include <endian.h>
 #endif
 
