@@ -20,7 +20,12 @@
 #include <endian.h>
 #endif
 
+#include <openssl/opensslv.h>
+#if (OPENSSL_VERSION_NUMBER > 0x1010100fL)
 #include <openssl/sha.h>
+#else
+#include <openssl/sha1.h>
+#endif
 
 /* --- MSVC doesn't support C99 --- */
 #ifdef _MSC_VER
@@ -399,4 +404,3 @@ void fastpbkdf2_hmac_sha512(const uint8_t *pw, size_t npw,
 {
   PBKDF2(sha512)(pw, npw, salt, nsalt, iterations, out, nout);
 }
-
