@@ -21,7 +21,7 @@
 #endif
 
 #include <openssl/opensslv.h>
-#if (OPENSSL_VERSION_NUMBER > 0x1010100fL)
+#if (OPENSSL_VERSION_NUMBER >= 0x1000000fL)
 #include <openssl/sha.h>
 #else
 #include <openssl/sha1.h>
