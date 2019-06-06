@@ -16,11 +16,18 @@
 
 #include <assert.h>
 #include <string.h>
-#if defined(__GNUC__)
+#if defined(__APPLE__)
+#include <machine/endian.h>
+#elif defined(__GNUC__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 #include <endian.h>
 #endif
 
+#include <openssl/opensslv.h>
+#if (OPENSSL_VERSION_NUMBER >= 0x1000000fL)
 #include <openssl/sha.h>
+#else
+#include <openssl/sha1.h>
+#endif
 
 /* --- MSVC doesn't support C99 --- */
 #ifdef _MSC_VER
@@ -399,4 +406,3 @@ void fastpbkdf2_hmac_sha512(const uint8_t *pw, size_t npw,
 {
   PBKDF2(sha512)(pw, npw, salt, nsalt, iterations, out, nout);
 }
-
