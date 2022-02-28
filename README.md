@@ -86,6 +86,7 @@ The program `multibench` provides a basic performance comparison for using this 
 * [ruby-fastpbkdf2](https://github.com/S-YOU/ruby-fastpbkdf2.git) by [S-YOU](https://github.com/S-YOU).
 * [fastpbkdf2-hs](https://github.com/adinapoli/fastpbkdf2-hs.git) by [adinapoli](https://github.com/adinapoli).
 * [perl-fastpbkdf2](https://github.com/duanehutchins/perl-fastpbkdf2) by [duanehutchins](https://github.com/duanehutchins).
+* [fastpbkdf2_ada](https://github.com/AntonMeep/fastpbkdf2_ada) by [AntonMeep](https://github.com/AntonMeep).
 
 ## Author
 Joseph Birr-Pixton <jpixton@gmail.com>
